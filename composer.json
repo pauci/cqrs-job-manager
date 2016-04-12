@@ -1,0 +1,11 @@
+{
+  "name": "pauci/cqrs-job-manager",
+  "description": "Asynchronous event processing",
+  "license": "MIT",
+  "require": {
+    "php": "^7.0",
+    "pauci/cqrs": "^0.1.0",
+    "beberlei/assert": "^2.5",
+    "doctrine/orm": "^2.5"
+  }
+}
