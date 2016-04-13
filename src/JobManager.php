@@ -7,7 +7,6 @@ use CQRSJobManager\Command\ManageJob;
 use CQRSJobManager\Command\RunJob;
 use CQRSJobManager\Job\Job;
 use CQRSJobManager\Job\JobRepository;
-use Psr\Log\LoggerInterface;
 
 final class JobManager
 {
@@ -27,11 +26,6 @@ final class JobManager
     private $jobRepository;
 
     /**
-     * @var LoggerInterface
-     */
-    private $logger;
-
-    /**
      * @var int
      */
     private $pid;
@@ -44,13 +38,11 @@ final class JobManager
     public function __construct(
         ProcessManager $processManager,
         JobExecutor $jobExecutor,
-        JobRepository $jobRepository,
-        LoggerInterface $logger
+        JobRepository $jobRepository
     ) {
         $this->processManager = $processManager;
         $this->jobExecutor = $jobExecutor;
         $this->jobRepository = $jobRepository;
-        $this->logger = $logger;
     }
 
     public function run(RunJob $command)
