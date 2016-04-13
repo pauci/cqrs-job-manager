@@ -112,7 +112,7 @@ final class JobManager
     /**
      * @return bool
      */
-    private function isChildProcess()
+    private function isChildProcess() : bool
     {
         return $this->processManager->getMyPid() !== $this->pid;
     }

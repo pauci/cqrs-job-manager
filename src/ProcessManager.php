@@ -38,7 +38,7 @@ class ProcessManager
     /**
      * @return int
      */
-    public function getMyPid()
+    public function getMyPid() : int
     {
         return getmypid();
     }
@@ -48,7 +48,7 @@ class ProcessManager
      * @return int
      * @throws RuntimeException
      */
-    public function fork($title = null)
+    public function fork(string $title = null) : int
     {
         // Close resources prior to forking
         $this->resourceManager->close();
@@ -74,7 +74,7 @@ class ProcessManager
     /**
      * @param int $pid
      */
-    public function kill($pid)
+    public function kill(int $pid)
     {
         posix_kill($pid, SIGTERM);
     }
@@ -83,7 +83,7 @@ class ProcessManager
      * @param int $pid
      * @param callable $handler
      */
-    public function installChildExitHandler($pid, callable $handler)
+    public function installChildExitHandler(int $pid, callable $handler)
     {
         $this->childSignalHandlers[$pid] = $handler;
         $this->handleQueuedChildSignals($pid);
@@ -113,7 +113,9 @@ class ProcessManager
         $this->childSignalHandlerInstalled = pcntl_signal(SIGCHLD, function () {
             $pid = pcntl_wait($status, WNOHANG);
             while ($pid > 0) {
+                // Add child signal to queue
                 $this->childSignalQueue[$pid][] = $status;
+                // Handle any child signals queued
                 $this->handleQueuedChildSignals($pid);
 
                 $pid = pcntl_wait($status, WNOHANG);
@@ -124,7 +126,7 @@ class ProcessManager
     /**
      * @param int $pid
      */
-    private function handleQueuedChildSignals($pid)
+    private function handleQueuedChildSignals(int $pid)
     {
         if (!isset($this->childSignalHandlers[$pid], $this->childSignalQueue[$pid])) {
             return;

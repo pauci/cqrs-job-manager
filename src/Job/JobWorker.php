@@ -6,6 +6,7 @@ use CQRSJobManager\EventProcessor;
 use CQRS\Domain\Message\EventMessageInterface;
 use DateTime;
 use Doctrine\ORM\Mapping as ORM;
+use Generator;
 use Ramsey\Uuid\UuidInterface;
 use RuntimeException;
 use Throwable;
@@ -83,8 +84,11 @@ class JobWorker
      */
     private $terminate = false;
 
-    public function start(EventProcessor $eventProcessor, JobSettings $settings, UuidInterface $previousEventId = null)
-    {
+    public function start(
+        EventProcessor $eventProcessor,
+        JobSettings $settings,
+        UuidInterface $previousEventId = null
+    ) : Generator {
         $this->lock();
 
         if ($previousEventId !== null) {
@@ -129,7 +133,7 @@ class JobWorker
         $this->lastUpdate = new DateTime();
     }
 
-    private function run(EventProcessor $eventProcessor, JobSettings $settings)
+    private function run(EventProcessor $eventProcessor, JobSettings $settings) : Generator
     {
         try {
             $process = $eventProcessor->process($settings, $this->lastEventId);

@@ -36,7 +36,7 @@ final class EventProcessor
      * @param UuidInterface $previousEventId
      * @return Generator
      */
-    public function process(JobSettings $settings, UuidInterface $previousEventId)
+    public function process(JobSettings $settings, UuidInterface $previousEventId) : Generator
     {
         $eventPublicationProcess = $this->createEventPublicationProcess($settings, $previousEventId);
 
@@ -60,7 +60,7 @@ final class EventProcessor
      * @param UuidInterface $previousEventId
      * @return Generator
      */
-    private function createEventPublicationProcess(JobSettings $settings, UuidInterface $previousEventId)
+    private function createEventPublicationProcess(JobSettings $settings, UuidInterface $previousEventId) : Generator
     {
         $this->eventStream = $settings->createEventStream($this->container, $previousEventId);
         $eventBus = $settings->getEventBus($this->container);
