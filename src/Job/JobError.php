@@ -4,6 +4,7 @@ namespace CQRSJobManager\Job;
 
 use DateTime;
 use Doctrine\ORM\Mapping as ORM;
+use JsonSerializable;
 use Ramsey\Uuid\UuidInterface;
 use Throwable;
 
@@ -11,7 +12,7 @@ use Throwable;
  * @ORM\Entity
  * @ORM\Table(name="backend_job_error")
  */
-class JobError
+class JobError implements JsonSerializable
 {
     /**
      * @ORM\Id
@@ -61,5 +62,16 @@ class JobError
         $this->eventId = $eventId;
         $this->message = $message;
         $this->time = $time;
+    }
+
+    public function jsonSerialize() : array
+    {
+        return [
+            'id' => $this->id,
+            'jobName' => $this->jobName,
+            'eventId' => $this->eventId,
+            'message' => $this->message,
+            'time' => $this->time->format(DateTime::ATOM),
+        ];
     }
 }

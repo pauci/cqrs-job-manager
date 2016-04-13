@@ -11,12 +11,13 @@ use CQRS\EventStream\DelayedEventStream;
 use CQRS\EventStream\EventStoreEventStream;
 use Doctrine\ORM\Mapping as ORM;
 use Interop\Container\ContainerInterface;
+use JsonSerializable;
 use Ramsey\Uuid\UuidInterface;
 
 /**
  * @ORM\Embeddable
  */
-final class JobSettings
+final class JobSettings implements JsonSerializable
 {
     /**
      * @ORM\Column
@@ -55,12 +56,6 @@ final class JobSettings
         int $throttlingInterval = null,
         bool $stopOnError = null
     ) {
-        Assertion::string($eventStore);
-        Assertion::string($eventBus);
-        Assertion::nullOrIntegerish($delayInterval);
-        Assertion::nullOrIntegerish($throttlingInterval);
-
-        $this->enabled = true;
         $this->eventStore = $eventStore;
         $this->eventBus = $eventBus;
         if (null !== $delayInterval) {
@@ -114,13 +109,19 @@ final class JobSettings
         return $eventBus;
     }
 
-    public function isEnabled() : bool
-    {
-        return $this->enabled;
-    }
-
     public function isStopOnError() : bool
     {
         return $this->stopOnError;
+    }
+
+    public function jsonSerialize() : array
+    {
+        return [
+            'eventStore' => $this->eventStore,
+            'eventBus' => $this->eventBus,
+            'delay' => $this->delay,
+            'throttling' => $this->throttling,
+            'stopOnError' => $this->stopOnError,
+        ];
     }
 }

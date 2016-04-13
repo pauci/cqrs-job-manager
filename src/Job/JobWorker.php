@@ -7,6 +7,7 @@ use CQRS\Domain\Message\EventMessageInterface;
 use DateTime;
 use Doctrine\ORM\Mapping as ORM;
 use Generator;
+use JsonSerializable;
 use Ramsey\Uuid\UuidInterface;
 use RuntimeException;
 use Throwable;
@@ -15,7 +16,7 @@ use Throwable;
  * @ORM\Entity(repositoryClass="CQRSJobManager\Infrastructure\Doctrine\Repository\DoctrineJobWorkerRepository")
  * @ORM\Table(name="cqrs_job_worker")
  */
-class JobWorker
+class JobWorker implements JsonSerializable
 {
     /**
      * @ORM\Id
@@ -172,5 +173,20 @@ class JobWorker
     {
         $this->lastError = JobError::create($this->jobName, $lastEventId, $e);
         $this->errorsCount++;
+    }
+
+    public function jsonSerialize() : array
+    {
+        return [
+            'jobName' => $this->jobName,
+            'running' => $this->running,
+            'eventsCount' => $this->eventsCount,
+            'errorsCount' => $this->errorsCount,
+            'lastEventId' => $this->lastEventId,
+            'lastEventTime' => $this->lastEventTime,
+            'lastError' => $this->lastError,
+            'startedAt' => $this->startedAt,
+            'lastUpdate' => $this->lastUpdate,
+        ];
     }
 }

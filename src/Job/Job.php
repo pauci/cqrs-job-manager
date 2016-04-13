@@ -7,12 +7,13 @@ use CQRSJobManager\Command\RunJob;
 use CQRSJobManager\JobExecutor;
 use CQRSJobManager\ProcessManager;
 use Doctrine\ORM\Mapping as ORM;
+use JsonSerializable;
 
 /**
  * @ORM\Entity(repositoryClass="CQRSJobManager\Infrastructure\Doctrine\Repository\DoctrineJobRepository")
  * @ORM\Table(name="cqrs_job")
  */
-class Job
+class Job implements JsonSerializable
 {
     /**
      * @ORM\Id
@@ -99,5 +100,14 @@ class Job
     public function isRunning() : bool
     {
         return $this->pid > 0;
+    }
+
+    public function jsonSerialize() : array
+    {
+        return [
+            'name' => $this->name,
+            'enabled' => $this->enabled,
+            'settings' => $this->settings,
+        ];
     }
 }
