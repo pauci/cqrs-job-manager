@@ -73,12 +73,12 @@ class Job
             return;
         }
 
-        $this->pid = $processManager->fork(sprintf('Event processing job `%s`', $this->name));
+        $this->pid = $processManager->forkChild(sprintf('Event processing job `%s`', $this->name));
         if ($this->pid === 0) {
             // Start the job in forked process
             $this->run($jobExecutor);
         } else {
-            $processManager->installChildExitHandler($this->pid, function ($exitCode) {
+            $processManager->onChildExited($this->pid, function ($exitCode) {
                 $this->pid = null;
 
                 // Disable job if it has failed

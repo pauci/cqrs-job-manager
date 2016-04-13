@@ -17,7 +17,7 @@ class ResourceManager
         $this->resources = $resources;
     }
 
-    public function close()
+    public function closeResources()
     {
         foreach ($this->resources as $resource) {
             if ($resource instanceof \Redis) {

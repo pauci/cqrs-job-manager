@@ -15,7 +15,7 @@ class ProcessManager
     /**
      * @var bool
      */
-    private $childSignalHandlerInstalled = false;
+    private $queueingChildSignals = false;
 
     /**
      * @var array
@@ -36,6 +36,8 @@ class ProcessManager
     }
 
     /**
+     * Returns the current process ID
+     *
      * @return int
      */
     public function getMyPid() : int
@@ -44,16 +46,19 @@ class ProcessManager
     }
 
     /**
-     * @param string|null $title
+     * Creates a child process. Returns child PID in parent process, 0 in child process.
+     *
+     * @param string|null $processTitle
      * @return int
      * @throws RuntimeException
      */
-    public function fork(string $title = null) : int
+    public function forkChild(string $processTitle = null) : int
     {
         // Close resources prior to forking
-        $this->resourceManager->close();
+        $this->resourceManager->closeResources();
 
-        $this->installChildSignalHandler();
+        // Start queueing child signals prior to forking, so no signal gets lost
+        $this->startQueueingChildSignals();
 
         set_error_handler(function ($code, $message, $file, $line) {
             $error = new ErrorException($message, $code, 1, $file, $line);
@@ -64,14 +69,16 @@ class ProcessManager
 
         restore_error_handler();
 
-        if ($pid === 0 && null !== $title) {
-            cli_set_process_title($title);
+        if ($pid === 0 && null !== $processTitle) {
+            cli_set_process_title($processTitle);
         }
 
         return $pid;
     }
 
     /**
+     * Sends termination signal
+     *
      * @param int $pid
      */
     public function kill(int $pid)
@@ -80,66 +87,76 @@ class ProcessManager
     }
 
     /**
-     * @param int $pid
+     * Registers handler to be called when child exits
+     *
+     * @param int $childPid
      * @param callable $handler
      */
-    public function installChildExitHandler(int $pid, callable $handler)
+    public function onChildExited(int $childPid, callable $handler)
     {
-        $this->childSignalHandlers[$pid] = $handler;
-        $this->handleQueuedChildSignals($pid);
+        $this->childSignalHandlers[$childPid] = $handler;
+        $this->handleQueuedChildSignals($childPid);
     }
 
     /**
+     * Registers handler to be called when termination signal is received
+     *
      * @param callable $handler
      */
-    public function installTerminationSignalHandler(callable $handler)
+    public function onTermination(callable $handler)
     {
         foreach ([SIGTERM, SIGINT, SIGHUP] as $signal) {
             pcntl_signal($signal, $handler);
         }
     }
 
+    /**
+     * Dispatch registered handlers for any pending signals
+     */
     public function dispatchSignals()
     {
         pcntl_signal_dispatch();
     }
 
-    private function installChildSignalHandler()
+    private function startQueueingChildSignals()
     {
-        if ($this->childSignalHandlerInstalled) {
-            return;
+        if (!$this->queueingChildSignals) {
+            $this->queueingChildSignals = pcntl_signal(SIGCHLD, [$this, 'queueChildSignal']);
         }
+    }
 
-        $this->childSignalHandlerInstalled = pcntl_signal(SIGCHLD, function () {
-            $pid = pcntl_wait($status, WNOHANG);
-            while ($pid > 0) {
-                // Add child signal to queue
-                $this->childSignalQueue[$pid][] = $status;
-                // Handle any child signals queued
-                $this->handleQueuedChildSignals($pid);
-
-                $pid = pcntl_wait($status, WNOHANG);
+    private function queueChildSignal()
+    {
+        while (true) {
+            $childPid = pcntl_wait($status, WNOHANG);
+            if ($childPid <= 0) {
+                return;
             }
-        });
+
+            // Add child signal to queue
+            $this->childSignalQueue[$childPid][] = $status;
+            // Handle any child signals queued
+            $this->handleQueuedChildSignals($childPid);
+        }
     }
 
     /**
-     * @param int $pid
+     * @param int $childPid
      */
-    private function handleQueuedChildSignals(int $pid)
+    private function handleQueuedChildSignals(int $childPid)
     {
-        if (!isset($this->childSignalHandlers[$pid], $this->childSignalQueue[$pid])) {
+        if (!isset($this->childSignalHandlers[$childPid], $this->childSignalQueue[$childPid])) {
             return;
         }
 
-        $status = array_shift($this->childSignalQueue[$pid]);
+        $status = array_shift($this->childSignalQueue[$childPid]);
         if (pcntl_wifexited($status)) {
             $exitCode = pcntl_wexitstatus($status);
-            $this->childSignalHandlers[$pid]($exitCode);
+            $this->childSignalHandlers[$childPid]($exitCode);
         } elseif (pcntl_wifsignaled($status)) {
-            $this->childSignalHandlers[$pid](0);
+            $this->childSignalHandlers[$childPid](0);
         } elseif (pcntl_wifstopped($status)) {
-            posix_kill($pid, SIGCONT);
+            posix_kill($childPid, SIGCONT);
         }
     }
 }

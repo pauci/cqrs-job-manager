@@ -38,7 +38,7 @@ final class JobExecutor
     {
         $jobWorker = $this->jobWorkerRepository->get($jobName);
 
-        $this->processManager->installTerminationSignalHandler([$jobWorker, 'stop']);
+        $this->processManager->onTermination([$jobWorker, 'stop']);
 
         $work = $jobWorker->start($this->eventProcessor, $settings, $previousEventId);
         foreach ($work as $event) {

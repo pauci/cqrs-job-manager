@@ -73,7 +73,7 @@ final class JobManager
     {
         $this->pid = $this->processManager->getMyPid();
 
-        $this->processManager->installTerminationSignalHandler(function () {
+        $this->processManager->onTermination(function () {
             $this->terminate = true;
         });
 
