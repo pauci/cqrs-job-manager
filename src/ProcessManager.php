@@ -2,20 +2,15 @@
 
 namespace CQRSJobManager;
 
-use Doctrine\Common\Cache\MemcacheCache;
-use Doctrine\Common\Cache\MemcachedCache;
-use Doctrine\Common\Cache\RedisCache;
-use Doctrine\DBAL\Connection;
 use ErrorException;
-use Memcached;
 use RuntimeException;
 
-final class ProcessManager
+class ProcessManager
 {
     /**
-     * @var Connection
+     * @var ResourceManager
      */
-    private $connection;
+    private $resourceManager;
 
     /**
      * @var bool
@@ -32,9 +27,12 @@ final class ProcessManager
      */
     private $childSignalHandlers = [];
 
-    public function __construct(Connection $connection)
+    /**
+     * @param ResourceManager $resourceManager
+     */
+    public function __construct(ResourceManager $resourceManager)
     {
-        $this->connection = $connection;
+        $this->resourceManager = $resourceManager;
     }
 
     /**
@@ -52,7 +50,9 @@ final class ProcessManager
      */
     public function fork($title = null)
     {
-        $this->closeResources();
+        // Close resources prior to forking
+        $this->resourceManager->close();
+
         $this->installChildSignalHandler();
 
         set_error_handler(function ($code, $message, $file, $line) {
@@ -138,26 +138,6 @@ final class ProcessManager
             $this->childSignalHandlers[$pid](0);
         } elseif (pcntl_wifstopped($status)) {
             posix_kill($pid, SIGCONT);
-        }
-    }
-
-    private function closeResources()
-    {
-        // Close the DB connection in preparation for forking
-        $this->connection->close();
-
-        $cache = $this->connection->getConfiguration()->getResultCacheImpl();
-
-        if ($cache instanceof RedisCache) {
-            $cache->getRedis()->close();
-        } elseif ($cache instanceof MemcacheCache) {
-            $cache->getMemcache()->close();
-        } elseif ($cache instanceof MemcachedCache) {
-            $servers = $cache->getMemcached()->getServerList();
-
-            $memcached = new Memcached();
-            $memcached->addServers($servers);
-            $cache->setMemcached($memcached);
         }
     }
 }
