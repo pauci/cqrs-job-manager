@@ -26,7 +26,7 @@ final class JobSettings implements JsonSerializable
      * @var EventBusConfig
      */
     private $eventBusConfig;
-    
+
     /**
      * @ORM\Column(type="boolean")
      * @var bool
@@ -46,8 +46,15 @@ final class JobSettings implements JsonSerializable
     public function override(RunJob $command) : JobSettings
     {
         return new self(
-            $this->eventStreamConfig->override($command->getEventStore(), null, $command->getDelay(), $command->getThrottling()),
-            $this->eventBusConfig->override($command->getEventBus()),
+            $this->eventStreamConfig->override(
+                $command->getEventStore(),
+                null,
+                $command->getDelay(),
+                $command->getThrottling()
+            ),
+            $this->eventBusConfig->override(
+                $command->getEventBus()
+            ),
             $command->getStopOnError() ?? $this->stopOnError
         );
     }
