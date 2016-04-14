@@ -2,13 +2,9 @@
 
 namespace CQRSJobManager\Job;
 
-use Assert\Assertion;
+use CQRS\EventStream\EventStreamInterface;
 use CQRSJobManager\Command\RunJob;
 use CQRS\EventHandling\EventBusInterface;
-use CQRS\EventStore\EventStoreInterface;
-use CQRS\EventStream\ContinuousEventStream;
-use CQRS\EventStream\DelayedEventStream;
-use CQRS\EventStream\EventStoreEventStream;
 use Doctrine\ORM\Mapping as ORM;
 use Interop\Container\ContainerInterface;
 use JsonSerializable;
@@ -20,93 +16,52 @@ use Ramsey\Uuid\UuidInterface;
 final class JobSettings implements JsonSerializable
 {
     /**
-     * @ORM\Column
-     * @var string
+     * @ORM\Embedded(class="EventStreamConfig", columnPrefix=false)
+     * @var EventStreamConfig
      */
-    private $eventStore;
+    private $eventStreamConfig;
 
     /**
-     * @ORM\Column
-     * @var string
+     * @ORM\Embedded(class="EventBusConfig", columnPrefix=false)
+     * @var EventBusConfig
      */
-    private $eventBus;
-
-    /**
-     * @ORM\Column(type="integer")
-     * @var int
-     */
-    private $delay = 10;
-
-    /**
-     * @ORM\Column(type="integer")
-     * @var int
-     */
-    private $throttling = 500000;
-
+    private $eventBusConfig;
+    
     /**
      * @ORM\Column(type="boolean")
      * @var bool
      */
-    private $stopOnError = true;
+    private $stopOnError;
 
     public function __construct(
-        string $eventStore,
-        string $eventBus,
-        int $delayInterval = null,
-        int $throttlingInterval = null,
-        bool $stopOnError = null
+        EventStreamConfig $eventStreamConfig,
+        EventBusConfig $eventBusConfig,
+        bool $stopOnError = true
     ) {
-        $this->eventStore = $eventStore;
-        $this->eventBus = $eventBus;
-        if (null !== $delayInterval) {
-            $this->delay = (int) $delayInterval;
-        }
-        if (null !== $throttlingInterval) {
-            $this->throttling = (int) $throttlingInterval;
-        }
-        if (null !== $stopOnError) {
-            $this->stopOnError = (bool) $stopOnError;
-        }
+        $this->eventStreamConfig = $eventStreamConfig;
+        $this->eventBusConfig = $eventBusConfig;
+        $this->stopOnError = $stopOnError;
     }
 
     public function override(RunJob $command) : JobSettings
     {
         return new self(
-            $command->getEventStore() !== null ? $command->getEventStore() : $this->eventStore,
-            $command->getEventBus() !== null ? $command->getEventBus() : $this->eventBus,
-            $command->getDelay() !== null ? $command->getDelay() : $this->delay,
-            $command->getThrottling() !== null ? $command->getThrottling() : $this->throttling,
-            $command->getStopOnError() !== null ? $command->getStopOnError() : $this->stopOnError
+            $this->eventStreamConfig->override($command->getEventStore(), null, $command->getDelay(), $command->getThrottling()),
+            $this->eventBusConfig->override($command->getEventBus()),
+            $command->getStopOnError() ?? $this->stopOnError
         );
     }
 
     public function createEventStream(
         ContainerInterface $container,
         UuidInterface $previousEventId = null
-    ) : DelayedEventStream {
-        $eventStore = $this->getEventStore($container);
-
-        return new DelayedEventStream(
-            new ContinuousEventStream(
-                new EventStoreEventStream($eventStore, $previousEventId),
-                $this->throttling
-            ),
-            $this->delay
-        );
-    }
-
-    private function getEventStore(ContainerInterface $container) : EventStoreInterface
-    {
-        $eventStore = $container->get($this->eventStore);
-        Assertion::isInstanceOf($eventStore, EventStoreInterface::class);
-        return $eventStore;
+    ) : EventStreamInterface {
+        return $this->eventStreamConfig->createEventStream($container, $previousEventId);
     }
 
     public function getEventBus(ContainerInterface $container) : EventBusInterface
     {
-        $eventBus = $container->get($this->eventBus);
-        Assertion::isInstanceOf($eventBus, EventBusInterface::class);
-        return $eventBus;
+        return $this->eventBusConfig->getEventBus($container);
     }
 
     public function isStopOnError() : bool
@@ -117,10 +72,8 @@ final class JobSettings implements JsonSerializable
     public function jsonSerialize() : array
     {
         return [
-            'eventStore' => $this->eventStore,
-            'eventBus' => $this->eventBus,
-            'delay' => $this->delay,
-            'throttling' => $this->throttling,
+            'eventStreamConfig' => $this->eventStreamConfig,
+            'eventBusConfig' => $this->eventBusConfig,
             'stopOnError' => $this->stopOnError,
         ];
     }
